@@ -2,7 +2,7 @@
 
 # =============================================================================
 # Script Name: rog-create-zfs-swap.sh
-# Version: 1.5
+# Version: 1.6
 # Author: Dominic Horn
 # Date: 2024-08-19
 #
@@ -125,28 +125,54 @@ if [ -z "$ZPOOL" ] || [ -z "$DATASET" ] || [ -z "$SWAP_SIZE" ]; then
     usage
 fi
 
-# Create the ZFS dataset if the -c option is specified
-if $CREATE_DATASET; then
-    log_message "Creating ZFS dataset $ZPOOL/$DATASET with attributes:"
-    log_message "  dedup=$DEDUP"
-    log_message "  compression=$COMPRESSION"
-    log_message "  logbias=$LOGBIAS"
-    log_message "  atime=$ATIME"
-    log_message "  relatime=$RELATIME"
-    log_message "  recordsize=$RECORDSIZE"
-    log_message "  auto_snapshot=$AUTO_SNAPSHOT"
-    log_message "  checksum=$CHECKSUM"
-    log_message "  primarycache=$PRIMARYCACHE"
-    log_message "  secondarycache=$SECONDARYCACHE"
-    log_message "  sync=$SYNC"
-    
-    zfs create -o mountpoint=/swap -o dedup="$DEDUP" -o compression="$COMPRESSION" \
-    -o logbias="$LOGBIAS" -o atime="$ATIME" -o relatime="$RELATIME" -o recordsize="$RECORDSIZE" \
-    -o com.sun:auto-snapshot="$AUTO_SNAPSHOT" -o checksum="$CHECKSUM" -o primarycache="$PRIMARYCACHE" \
-    -o secondarycache="$SECONDARYCACHE" -o sync="$SYNC" "$ZPOOL/$DATASET"
-    
-    log_message "ZFS dataset $ZPOOL/$DATASET created."
-fi
+# Function to create or check the ZFS dataset
+create_or_check_dataset() {
+    if $CREATE_DATASET; then
+        if zfs list "$ZPOOL/$DATASET" >/dev/null 2>&1; then
+            log_message "ZFS dataset $ZPOOL/$DATASET already exists."
+            
+            # Check if the mountpoint is correct
+            local MOUNTPOINT=$(zfs get -H -o value mountpoint "$ZPOOL/$DATASET")
+            if [ "$MOUNTPOINT" != "/swap" ]; then
+                log_message "Incorrect mountpoint for $ZPOOL/$DATASET. Expected /swap but found $MOUNTPOINT."
+                exit 1
+            fi
+
+            log_message "ZFS dataset $ZPOOL/$DATASET is correctly mounted at $MOUNTPOINT."
+
+            # Check if the swap file exists and continue
+            if [ -f /swap/swapfile ]; then
+                log_message "Swap file /swap/swapfile already exists."
+                return
+            else
+                log_message "Swap file /swap/swapfile does not exist. Creating it now."
+            fi
+        else
+            log_message "Creating ZFS dataset $ZPOOL/$DATASET with attributes:"
+            log_message "  dedup=$DEDUP"
+            log_message "  compression=$COMPRESSION"
+            log_message "  logbias=$LOGBIAS"
+            log_message "  atime=$ATIME"
+            log_message "  relatime=$RELATIME"
+            log_message "  recordsize=$RECORDSIZE"
+            log_message "  auto_snapshot=$AUTO_SNAPSHOT"
+            log_message "  checksum=$CHECKSUM"
+            log_message "  primarycache=$PRIMARYCACHE"
+            log_message "  secondarycache=$SECONDARYCACHE"
+            log_message "  sync=$SYNC"
+
+            zfs create -o mountpoint=/swap -o dedup="$DEDUP" -o compression="$COMPRESSION" \
+            -o logbias="$LOGBIAS" -o atime="$ATIME" -o relatime="$RELATIME" -o recordsize="$RECORDSIZE" \
+            -o com.sun:auto-snapshot="$AUTO_SNAPSHOT" -o checksum="$CHECKSUM" -o primarycache="$PRIMARYCACHE" \
+            -o secondarycache="$SECONDARYCACHE" -o sync="$SYNC" "$ZPOOL/$DATASET"
+
+            log_message "ZFS dataset $ZPOOL/$DATASET created."
+        fi
+    fi
+}
+
+# Run the dataset creation or check function
+create_or_check_dataset
 
 # Check if /swap is a mount point
 if mountpoint -q /swap; then
