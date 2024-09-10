@@ -1,5 +1,5 @@
-# swapping:
-curl https://github.com/hornowitz/rog-fightmilk/raw/master/rog-create-zfs-swap.sh -o /usr/local/bin/rog-create-zfs-swap.sh
+curl https://raw.githubusercontent.com/hornowitz/rog-fightmilk/master/rog-create-zfs-swap.sh -o /usr/local/bin/rog-create-zfs-swap.sh
+
 chmod +x /usr/local/bin/rog-create-zfs-swap.sh
 
 
