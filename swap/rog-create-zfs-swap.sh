@@ -2,14 +2,14 @@
 
 # =============================================================================
 # Script Name: rog-create-zfs-swap.sh
-# Version: 1.9
+# Version: 2.1
 # Author: Dominic Horn
 # Date: 2024-09-20
 #
 # Description:
 # This script manages swap file creation and configuration on multiple ZFS datasets
 # to avoid ZFS and swap deadlocks. It can create and configure multiple ZFS datasets
-# with customizable attributes, and dynamically assign loop devices and swap files.
+# with customizable attributes, dynamically assigning loop devices and swap files.
 #
 # Requirements:
 # - Multiple ZFS datasets with specific options (can be created by this script).
@@ -133,17 +133,19 @@ get_next_available_loop_device() {
 # Function to create or check the ZFS dataset
 create_or_check_dataset() {
     local ZPOOL=$1
+    local MOUNTPOINT="/swap/$ZPOOL"
+
     if $CREATE_DATASET; then
         if zfs list "$ZPOOL/$DATASET" >/dev/null 2>&1; then
             log_message "ZFS dataset $ZPOOL/$DATASET already exists."
         else
             log_message "Creating ZFS dataset $ZPOOL/$DATASET"
-            zfs create -o mountpoint=/swap -o dedup="$DEFAULT_DEDUP" -o compression="$DEFAULT_COMPRESSION" \
+            zfs create -o mountpoint="$MOUNTPOINT" -o dedup="$DEFAULT_DEDUP" -o compression="$DEFAULT_COMPRESSION" \
                 -o logbias="$DEFAULT_LOGBIAS" -o atime="$DEFAULT_ATIME" -o relatime="$DEFAULT_RELATIME" \
                 -o recordsize="$DEFAULT_RECORDSIZE" -o com.sun:auto-snapshot="$DEFAULT_AUTO_SNAPSHOT" \
                 -o checksum="$DEFAULT_CHECKSUM" -o primarycache="$DEFAULT_PRIMARYCACHE" \
                 -o secondarycache="$DEFAULT_SECONDARYCACHE" -o sync="$DEFAULT_SYNC" "$ZPOOL/$DATASET"
-            log_message "ZFS dataset $ZPOOL/$DATASET created."
+            log_message "ZFS dataset $ZPOOL/$DATASET created with mountpoint $MOUNTPOINT."
         fi
     fi
 }
@@ -155,11 +157,20 @@ for ZPOOL in "${ZPOOL_ARRAY[@]}"; do
     # Create or check the dataset
     create_or_check_dataset "$ZPOOL"
 
-    # Check if /swap is a mount point
-    if mountpoint -q /swap; then
-        SWAPFILE="/swap/swapfile-$ZPOOL"
+    # Define unique mountpoint for each zpool
+    MOUNTPOINT="/swap/$ZPOOL"
 
-        log_message "/swap is a mount point."
+    # Ensure the mountpoint exists
+    if [ ! -d "$MOUNTPOINT" ]; then
+        mkdir -p "$MOUNTPOINT"
+        log_message "Created mountpoint: $MOUNTPOINT"
+    fi
+
+    # Check if mountpoint is correct
+    if mountpoint -q "$MOUNTPOINT"; then
+        SWAPFILE="$MOUNTPOINT/swapfile-$ZPOOL"
+
+        log_message "$MOUNTPOINT is a valid mount point."
 
         # Remove the existing swap file if necessary
         rm -f "$SWAPFILE"
@@ -189,7 +200,7 @@ for ZPOOL in "${ZPOOL_ARRAY[@]}"; do
         swapon "$LOOP_DEVICE"
         log_message "Swap enabled on $LOOP_DEVICE"
     else
-        log_message "/swap is not a mount point. Exiting."
+        log_message "$MOUNTPOINT is not a valid mount point."
         exit 1
     fi
 done
