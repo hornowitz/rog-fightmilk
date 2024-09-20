@@ -1,0 +1,14 @@
+[Unit]
+Description=Create and Configure ZFS Swap File for Multiple Zpools
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rog-create-zfs-swap.sh -z zfspool1,zfspool2 -d swap -s 7G -c
+# Ensure the script is executable and accessible by root
+User=root
+Group=root
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
