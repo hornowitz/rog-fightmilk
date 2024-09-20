@@ -2,18 +2,18 @@
 
 # =============================================================================
 # Script Name: rog-create-zfs-swap.sh
-# Version: 1.8
+# Version: 1.9
 # Author: Dominic Horn
 # Date: 2024-09-20
 #
 # Description:
 # This script manages swap file creation and configuration on multiple ZFS datasets
 # to avoid ZFS and swap deadlocks. It can create and configure multiple ZFS datasets
-# with customizable attributes, and dynamically assign loop devices for swap files.
+# with customizable attributes, and dynamically assign loop devices and swap files.
 #
 # Requirements:
 # - Multiple ZFS datasets with specific options (can be created by this script).
-# 
+#
 # Usage:
 # ./rog-create-zfs-swap.sh -z <zpool1,zpool2,...> -d <dataset> -s <swap_size> [-c] [options]
 # Example: ./rog-create-zfs-swap.sh -z zfspool1,zfspool2 -d swap -s 7G -c -D off -C zle -L throughput -A off -R off -x 8k -S always
@@ -29,7 +29,7 @@ DEFAULT_LOGBIAS="throughput"
 DEFAULT_ATIME="off"
 DEFAULT_RELATIME="off"
 DEFAULT_RECORDSIZE="8k"
-DEFAULT_AUTO_SNAPSHOT="false"  # Changed to 'false'
+DEFAULT_AUTO_SNAPSHOT="false"
 DEFAULT_CHECKSUM="fletcher4"
 DEFAULT_PRIMARYCACHE="none"
 DEFAULT_SECONDARYCACHE="none"
@@ -157,31 +157,33 @@ for ZPOOL in "${ZPOOL_ARRAY[@]}"; do
 
     # Check if /swap is a mount point
     if mountpoint -q /swap; then
+        SWAPFILE="/swap/swapfile-$ZPOOL"
+
         log_message "/swap is a mount point."
 
         # Remove the existing swap file if necessary
-        rm -f /swap/swapfile
-        log_message "Removed existing /swap/swapfile"
+        rm -f "$SWAPFILE"
+        log_message "Removed existing $SWAPFILE"
 
         # Allocate a new swap file with the specified size
-        fallocate -l "$SWAP_SIZE" /swap/swapfile
-        log_message "Allocated a new $SWAP_SIZE /swap/swapfile"
+        fallocate -l "$SWAP_SIZE" "$SWAPFILE"
+        log_message "Allocated a new $SWAP_SIZE $SWAPFILE"
 
         # Set the correct permissions
-        chmod 0600 /swap/swapfile
-        log_message "Set permissions on /swap/swapfile to 0600"
+        chmod 0600 "$SWAPFILE"
+        log_message "Set permissions on $SWAPFILE to 0600"
 
         # Create a swap area
-        mkswap /swap/swapfile
-        log_message "Created swap area on /swap/swapfile"
+        mkswap "$SWAPFILE"
+        log_message "Created swap area on $SWAPFILE"
 
         # Get the next available loop device
         LOOP_DEVICE=$(get_next_available_loop_device)
         log_message "Using loop device: $LOOP_DEVICE"
 
         # Set up a loop device for the swap file
-        losetup "$LOOP_DEVICE" /swap/swapfile
-        log_message "Loop device $LOOP_DEVICE set up for /swap/swapfile"
+        losetup "$LOOP_DEVICE" "$SWAPFILE"
+        log_message "Loop device $LOOP_DEVICE set up for $SWAPFILE"
 
         # Enable the swap file
         swapon "$LOOP_DEVICE"
