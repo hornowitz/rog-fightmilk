@@ -2,7 +2,7 @@
 
 # =============================================================================
 # Script Name: rog-create-zfs-swap.sh
-# Version: 2.1
+# Version: 2.2
 # Author: Dominic Horn
 # Date: 2024-09-20
 #
@@ -196,9 +196,12 @@ for ZPOOL in "${ZPOOL_ARRAY[@]}"; do
         losetup "$LOOP_DEVICE" "$SWAPFILE"
         log_message "Loop device $LOOP_DEVICE set up for $SWAPFILE"
 
-        # Enable the swap file
-        swapon "$LOOP_DEVICE"
-        log_message "Swap enabled on $LOOP_DEVICE"
+        # Set priority for swap files
+        SWAP_PRIORITY=10  # Default priority
+
+        # Enable the swap file with the same priority across all zpools
+        swapon -p "$SWAP_PRIORITY" "$LOOP_DEVICE"
+        log_message "Swap enabled on $LOOP_DEVICE with priority $SWAP_PRIORITY"
     else
         log_message "$MOUNTPOINT is not a valid mount point."
         exit 1
